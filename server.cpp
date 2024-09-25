@@ -9,7 +9,16 @@
 #include <arpa/inet.h>
 #include <cstring>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #include "util.h"
+
+const int MAX_EVENTS = 1024;
+const int READ_BUFFER = 1024;
+
+void set_nonblocking(int fd) {
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+}
 
 int main() {
     // 1. Create socket for listening
@@ -30,37 +39,64 @@ int main() {
     ret = listen(sockfd, SOMAXCONN);
     errif(ret == -1, "server: socket listen error");
 
-    // 4. Establish connection
-    sockaddr_in clnt_addr;
-    socklen_t clnt_addr_len = sizeof(clnt_addr);
-    bzero(&clnt_addr, sizeof(clnt_addr));
+    int epfd = epoll_create1(0);
+    errif(epfd == -1, "server: epoll create error");
 
-    int clnt_sockfd = accept(sockfd, (sockaddr *) &clnt_addr, &clnt_addr_len);
-    errif(ret == -1, "server: socket accept error");
+    struct epoll_event events[MAX_EVENTS], ev;
+    bzero(&events, sizeof(events));
 
-    char ip[64] = {0};
-    printf("server: new client fd %d! IP: %s Port: %d\n", clnt_sockfd, inet_ntoa(clnt_addr.sin_addr),
-           ntohs(clnt_addr.sin_port));
+    bzero(&ev, sizeof(ev));
+    ev.data.fd = sockfd;
+    ev.events = EPOLLIN || EPOLLET;
+    set_nonblocking(sockfd);
+    epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &ev);
 
-    // 5. Communicate
-    char buf[512];
-    while (1) {
-        bzero(buf, sizeof(buf));
-        int len = read(clnt_sockfd, buf, sizeof(buf));
-        if (len > 0) {
-            printf("server: client %d says: %s\n", clnt_sockfd, buf);
-            write(clnt_sockfd, buf, len);
-        } else if (len == 0) {
-            printf("server: client %d is disconnected...\n", clnt_sockfd);
-            close(clnt_sockfd);
-            break;
-        } else {
-            close(clnt_sockfd);
-            errif(true, "server: socket read error");
-            break;
+    while (true) {
+        int nfds = epoll_wait(epfd, events, MAX_EVENTS, -1);
+        errif(nfds == -1, "server: epoll wait error");
+        for (int i = 0; i < nfds; ++i) {
+            if (events[i].data.fd == sockfd) {
+                // 4. Establish connection
+                sockaddr_in clnt_addr;
+                socklen_t clnt_addr_len = sizeof(clnt_addr);
+                bzero(&clnt_addr, sizeof(clnt_addr));
+
+                int clnt_sockfd = accept(sockfd, (sockaddr *) &clnt_addr, &clnt_addr_len);
+                errif(ret == -1, "server: socket accept error");
+                printf("server: new client fd %d! IP: %s Port: %d\n", clnt_sockfd, inet_ntoa(clnt_addr.sin_addr),
+                       ntohs(clnt_addr.sin_port));
+
+                bzero(&ev, sizeof(ev));
+                ev.data.fd = clnt_sockfd;
+                ev.events = EPOLLIN | EPOLLET;
+                set_nonblocking(clnt_sockfd);
+                epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sockfd, &ev);
+            } else if (events[i].events & EPOLLIN) {
+                char buf[READ_BUFFER];
+                while (true) {
+                    bzero(&buf, sizeof(buf));
+                    ssize_t bytes_read = read(events[i].data.fd, buf, sizeof(buf));
+                    if (bytes_read > 0) {
+                        printf("server: client %d says: %s\n", events[i].data.fd, buf);
+                        write(events[i].data.fd, buf, sizeof(buf));
+                    } else if (bytes_read == -1 && errno == EINTR) {
+                        printf("server: continue reading");
+                        continue;
+                    } else if (bytes_read == -1 && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
+                        printf("server: finish reading once, errno: %d\n", errno);
+                        break;
+                    } else if (bytes_read == 0) {
+                        printf("server: EOF, client fd %d disconnected\n", events[i].data.fd);
+                        close(events[i].data.fd);
+                        break;
+                    }
+                }
+            } else {
+                // TODO
+                printf("server: TODO");
+            }
         }
     }
-
     close(sockfd);
     return 0;
 }
