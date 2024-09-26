@@ -7,7 +7,7 @@
 #include <arpa/inet.h>
 #include <cstring>
 #include <unistd.h>
-#include "util.h"
+#include "src/util.h"
 
 int main() {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);

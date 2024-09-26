@@ -26,7 +26,7 @@ Epoll::~Epoll() {
 }
 
 void Epoll::addFd(int fd, uint32_t op) {
-    struct epoll_event ev;
+    struct epoll_event ev{};
     bzero(&ev, sizeof(ev));
     ev.data.fd = fd;
     ev.events = op;
@@ -38,7 +38,7 @@ std::vector<Channel *> Epoll::poll(int timeout) {
     int nfds = epoll_wait(epfd, events, MAX_EVENTS, timeout);
     errif(nfds == -1, "server: epoll wait error");
     for (int i = 0; i < nfds; i++) {
-        Channel *ch = (Channel *)events[i].data.ptr;
+        auto *ch = (Channel *)events[i].data.ptr;
         ch->setRevents(events[i].events);
         activeChannels.push_back(ch);
     }
@@ -47,7 +47,7 @@ std::vector<Channel *> Epoll::poll(int timeout) {
 
 void Epoll::updateChannel(Channel *channel) {
     int fd = channel->getFd();
-    struct epoll_event ev;
+    struct epoll_event ev{};
     bzero(&ev, sizeof(ev));
     ev.data.ptr = channel;
     ev.events = channel->getEvents();
