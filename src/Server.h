@@ -6,11 +6,13 @@
 #define MYCPPSERVER_SERVER_H
 
 
+class Acceptor;
 class EventLoop;
 class Socket;
 class Server {
 private:
     EventLoop *loop;
+    Acceptor *acceptor;
 public:
     Server(EventLoop *);
     ~Server();

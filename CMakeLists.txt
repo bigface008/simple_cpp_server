@@ -24,4 +24,6 @@ add_executable(server server.cpp
         src/Server.cpp
         src/Server.h
         src/EventLoop.cpp
-        src/EventLoop.h)
+        src/EventLoop.h
+        src/Acceptor.cpp
+        src/Acceptor.h)
