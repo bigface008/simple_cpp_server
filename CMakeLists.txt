@@ -12,4 +12,10 @@ add_library(utils STATIC
 link_libraries(utils)
 
 add_executable(client client.cpp)
-add_executable(server server.cpp)
+add_executable(server server.cpp
+        Epoll.cpp
+        Epoll.h
+        InetAddress.cpp
+        InetAddress.h
+        Socket.cpp
+        Socket.h)
