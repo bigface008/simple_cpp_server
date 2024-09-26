@@ -1,0 +1,34 @@
+//
+// Created by wangzhehao on 9/25/24.
+//
+
+#ifndef MYCPPSERVER_CHANNEL_H
+#define MYCPPSERVER_CHANNEL_H
+
+#include <sys/epoll.h>
+
+class Epoll;
+class Channel {
+private:
+    Epoll *ep;
+    int fd;
+    uint32_t events;
+    uint32_t revents;
+    bool inEpoll;
+
+public:
+    Channel(Epoll *_ep, int _fd);
+    ~Channel();
+
+    void enableReading();
+    int getFd();
+    uint32_t getEvents();
+    uint32_t getRevents();
+    bool getInEpoll();
+    void setInEpoll();
+
+    void setRevents(uint32_t);
+};
+
+
+#endif //MYCPPSERVER_CHANNEL_H

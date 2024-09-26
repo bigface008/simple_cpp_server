@@ -18,4 +18,6 @@ add_executable(server server.cpp
         InetAddress.cpp
         InetAddress.h
         Socket.cpp
-        Socket.h)
+        Socket.h
+        Channel.cpp
+        Channel.h)
